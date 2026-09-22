@@ -1,4 +1,4 @@
-.PHONY: install dev-api dev-ui build test serve experiments examples
+.PHONY: install dev-api dev-ui build test serve experiments examples bounds
 
 install:
 	python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -24,3 +24,6 @@ experiments:
 
 examples:
 	.venv/bin/python -m experiments.run_experiments --examples
+
+bounds:
+	.venv/bin/python -m experiments.upper_bound
