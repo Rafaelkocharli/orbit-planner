@@ -22,6 +22,7 @@ from model.operations import Session
 from model.resource_env import load
 
 from backend.app.analysis import missed_jobs
+from experiments.upper_bound import bounds as upper_bounds
 from backend.app.config import ALGORITHM_VERSION, DATA_DIR, EXAMPLES_DIR, ROOT
 from backend.app.planners import GOALS, PLANNERS, make_planner
 
@@ -46,7 +47,7 @@ def run_one(scenario: dict, planner_name: str, goal: str, events: list[dict], pa
     return session, time.perf_counter() - t0
 
 
-def row_for(name, scenario_id, planner, goal, with_events, session, seconds):
+def row_for(name, scenario_id, planner, goal, with_events, session, seconds, bound=None):
     s = session.summary()
     causes = {c["cause"]: c["jobs"] for c in missed_jobs(session)["by_cause"]}
     due = s["critical_jobs_due"]
@@ -62,6 +63,12 @@ def row_for(name, scenario_id, planner, goal, with_events, session, seconds):
         "missed_avoidable": s["jobs_due_missed"] - causes.get("infeasible_contacts", 0),
         "top_avoidable_cause": next((c for c in causes if c != "infeasible_contacts"), None),
         "seconds": round(seconds, 3),
+        # share of the provable maximum (LP bound over the base plan, without events)
+        "jobs_of_bound": round(s["jobs_completed"] / bound["max_jobs"], 4) if bound and not with_events else None,
+        "critical_of_bound": round(s["critical_jobs_completed_on_time"] / bound["max_critical"], 4)
+        if bound and bound["max_critical"] and not with_events else None,
+        "revenue_of_bound": round(s["revenue_usd"] / bound["max_revenue_usd"], 4)
+        if bound and bound["max_revenue_usd"] and not with_events else None,
     }
 
 
@@ -92,6 +99,7 @@ def main() -> None:
     rows = []
     for scenario_id in args.scenarios:
         scenario = load(DATA_DIR / f"{scenario_id}.json")
+        bound = upper_bounds(scenario)
         variants = [False, True] if scenario["time"]["steps"] >= 288 else [False]
         for planner in args.planners:
             for goal in args.goals:
@@ -100,7 +108,7 @@ def main() -> None:
                     session, sec = run_one(scenario, planner, goal, events if with_events else [])
                     (args.out / f"{name}.result.json").write_text(
                         json.dumps(session.result(), ensure_ascii=False), encoding="utf-8")
-                    rows.append(row_for(name, scenario_id, planner, goal, with_events, session, sec))
+                    rows.append(row_for(name, scenario_id, planner, goal, with_events, session, sec, bound))
                     print(f"{name}: done {rows[-1]['jobs_completed']}/{rows[-1]['jobs_total']}, "
                           f"p3 {rows[-1]['critical_on_time']}/{rows[-1]['critical_due']}, "
                           f"${rows[-1]['revenue_usd']:.2f}, {sec:.2f}s")
@@ -110,8 +118,8 @@ def main() -> None:
         w.writeheader()
         w.writerows(rows)
     cols = ["scenario", "events", "planner", "goal", "jobs_completed", "jobs_total", "critical_on_time",
-            "critical_due", "revenue_usd", "missed_infeasible", "missed_avoidable", "top_avoidable_cause",
-            "below_reserve_steps", "seconds"]
+            "critical_due", "revenue_usd", "jobs_of_bound", "critical_of_bound", "revenue_of_bound",
+            "missed_infeasible", "missed_avoidable", "top_avoidable_cause", "below_reserve_steps", "seconds"]
     lines = [f"# Experiments\n\nalgorithm version {ALGORITHM_VERSION}, python {platform.python_version()}, "
              f"events file `{EVENTS_FILE.relative_to(ROOT)}` for 288-step scenarios.\n",
              "| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
