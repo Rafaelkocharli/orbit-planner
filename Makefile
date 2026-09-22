@@ -1,4 +1,4 @@
-.PHONY: install dev-api dev-ui build test serve
+.PHONY: install dev-api dev-ui build test serve experiments examples
 
 install:
 	python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -18,3 +18,9 @@ test:
 
 serve: build
 	.venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+
+experiments:
+	.venv/bin/python -m experiments.run_experiments
+
+examples:
+	.venv/bin/python -m experiments.run_experiments --examples
