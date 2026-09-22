@@ -176,6 +176,8 @@ label.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
   padding: 16px 18px; margin-bottom: 12px;
   backdrop-filter: blur(12px); box-shadow: var(--shadow);
 }
+/* The sticky bar is tall; on short screens it would hide the tab content. */
+@media (max-height: 900px) { .runbar { position: static; } }
 .runbar-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 12px 0; }
 .stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel-2); }
