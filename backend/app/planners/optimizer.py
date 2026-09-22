@@ -337,6 +337,9 @@ class OptimizerPlanner:
             mdl.AddHint(z, done_in_seed.get(jid, 0) == env.jobs[jid]["remaining_steps"])
 
         if len(x) + len(cal) > self.max_variables:
+            # Too large for an exact solve: plan by reservation over the whole remaining
+            # shift, which packs better than a horizon-limited reservation.
+            seed = ReservationPlanner(energy_margin_wh=self.energy_margin_wh).replan(env, goal)
             self._plan = dict(seed)
             for t in steps:
                 self._plan.setdefault(t, {})
@@ -374,6 +377,12 @@ class OptimizerPlanner:
                          planned_completions=sum(solver.Value(z) for z in complete.values()))
             gap = abs(stats["bound"] - stats["objective"]) / max(1.0, abs(stats["bound"]))
             stats["gap"] = round(gap, 6)
+            # Safety net: execute whichever plan completes more by the goal's own ranking,
+            # so a time-limited solve can never do worse than the reservation seed.
+            if _completion_value(env, seed, weight, k + H) > _completion_value(env, plan, weight, k + H):
+                plan = dict(seed)
+                stats["status"] = "RESERVATION"
+                stats["note"] = "reservation plan ranked higher than the time-limited solve"
             self._plan = {t: a for t, a in plan.items()}
             for t in steps:
                 self._plan.setdefault(t, {})
@@ -390,3 +399,22 @@ class OptimizerPlanner:
         if len(self.solves) > 400:
             self.solves = self.solves[-400:]
 
+
+
+def _completion_value(env, plan: dict, weight, end: int) -> int:
+    """Goal-weighted value of the jobs a plan completes by `end` (their remaining work fully planned)."""
+    planned: dict[str, int] = {}
+    for t, acts in plan.items():
+        if t < end:
+            for a in acts.values():
+                if a["action"] == "job":
+                    planned[a["job_id"]] = planned.get(a["job_id"], 0) + 1
+    total = 0
+    for jid, n in planned.items():
+        j = env.jobs[jid]
+        if n >= j["remaining_steps"]:
+            try:
+                total += weight(jid)
+            except KeyError:  # job not in the exact model (e.g. beyond the horizon)
+                continue
+    return total
