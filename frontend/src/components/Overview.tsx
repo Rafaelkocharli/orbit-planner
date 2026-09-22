@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
-import { Analytics, api, Forecast, RunState, Task } from "../api";
+import { Analytics, api, Forecast, PlannerReport, RunState, Task } from "../api";
 import { BriefCompare, Card, fmt, Progress, Table } from "./ui";
+
+const REPLAN_TEXT: Record<string, string> = {
+  start: "начало смены", periodic: "плановый", event: "новое сообщение", goal_changed: "смена цели", deviation: "отклонение от плана",
+};
 
 export default function Overview({ run, act, busy }: { run: RunState; act: (fn: () => Promise<void>) => void; busy: boolean }) {
   const [a, setA] = useState<Analytics | null>(null);
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [task, setTask] = useState<Task | null>(null);
+  const [planner, setPlanner] = useState<PlannerReport | null>(null);
 
   useEffect(() => {
     api.analytics(run.run_id).then(setA).catch(() => setA(null));
+    api.planner(run.run_id).then(setPlanner).catch(() => setPlanner(null));
     setForecast(null);
   }, [run.run_id, run.step, run.events.length, run.goal]);
 
@@ -22,6 +28,25 @@ export default function Overview({ run, act, busy }: { run: RunState; act: (fn: 
         {a && <p className="muted">Загрузка группировки: {fmt.pct(a.utilization.fleet_utilization)} шагов заняты заданиями.
           Доля не считается, пока нет выполненных шагов или заданий со сроком.</p>}
       </Card>
+
+      {planner?.report && (
+        <Card title={`Как работал алгоритм: ${planner.planner} ${planner.version}`}>
+          <p>
+            Пересчётов плана: <strong>{planner.report.replans}</strong>, из них с доказанной оптимальностью на горизонте:{" "}
+            <strong>{planner.report.proven_optimal}</strong>
+            {planner.report.fallbacks > 0 && <span className="bad"> · запасное правило: {planner.report.fallbacks}</span>}
+          </p>
+          <p className="muted">
+            Причины: {Object.entries(planner.report.by_reason).map(([r, n]) => `${REPLAN_TEXT[r] ?? r} — ${n}`).join(", ")}.
+            Горизонт {String(planner.params.horizon)} шагов, пересчёт каждые {String(planner.params.replan_every)}.
+          </p>
+          <Table dense
+            head={["Шаг", "Причина", "Статус", "Заданий в задаче", "Запланировано завершить", "Разрыв с границей", "Время, с"]}
+            rows={planner.report.solves.slice(-12).reverse().map((x) => [x.step, REPLAN_TEXT[x.reason] ?? x.reason,
+              x.status === "OPTIMAL" || x.gap === 0 ? <span className="good">оптимум</span> : x.status === "FEASIBLE" ? "допустимое" : <span className="bad">{x.status}</span>,
+              x.jobs_considered, x.planned_completions ?? "—", x.gap === undefined ? "—" : fmt.pct(x.gap, 2), fmt.n(x.wall_s, 1)])} />
+        </Card>
+      )}
 
       <Card title="Прогноз до конца смены" actions={
         <button disabled={busy || run.finished} onClick={() => act(async () => {

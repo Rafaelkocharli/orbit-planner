@@ -243,6 +243,7 @@ export const api = {
   analytics: (id: string) => get<Analytics>(`/runs/${id}/analytics`),
   why: (id: string, jobId: string) => get<Dict>(`/runs/${id}/jobs/${encodeURIComponent(jobId)}/why`),
   explain: (id: string, step: number, sid: string) => get<Explain>(`/runs/${id}/explain${qs({ step, satellite_id: sid })}`),
+  planner: (id: string) => get<PlannerReport>(`/runs/${id}/planner`),
   forecast: (id: string, onProgress?: (t: Task) => void) => runTask<Forecast>(`/runs/${id}/forecast`, {}, onProgress),
   compare: (a: string, b: string, goal?: Goal) => post<Comparison>("/compare", { a, b, goal }),
   strategies: (id: string, body: Dict, onProgress?: (t: Task) => void) =>
@@ -375,4 +376,17 @@ export interface WhatIfEventResult {
 export interface WhatIfResourcesResult {
   note: string;
   results: { label: string; overrides: Dict; metrics: Brief; delta?: Brief; verdict?: Verdict; event_errors: Dict[] }[];
+}
+
+export interface PlannerReport {
+  planner: string;
+  version: string;
+  params: Dict;
+  report: null | {
+    replans: number;
+    proven_optimal: number;
+    fallbacks: number;
+    by_reason: Record<string, number>;
+    solves: { step: number; reason: string; status: string; wall_s: number; horizon: number; variables: number; jobs_considered: number; planned_completions?: number; gap?: number }[];
+  };
 }

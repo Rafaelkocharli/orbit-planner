@@ -444,6 +444,16 @@ def explain(run_id: str, step: int = Query(..., ge=0), satellite_id: str = Query
         return bad_request(lambda: analysis.explain_decision(run.session, step, satellite_id))
 
 
+@app.get("/api/runs/{run_id}/planner")
+def planner_report(run_id: str, owner: str = Depends(client)):
+    """How the planner decided: replanning log with status and optimality gap."""
+    run = get_run(run_id, owner)
+    with reading(run):
+        hook = getattr(run.planner, "report", None)
+        return {"planner": run.planner_name, "version": run.planner.version, "params": run.planner.params(),
+                "report": hook() if callable(hook) else None}
+
+
 @app.post("/api/runs/{run_id}/forecast")
 def forecast(run_id: str, body: Background, owner: str = Depends(client)):
     run = get_run(run_id, owner)
