@@ -15,6 +15,7 @@ def h(cid="alice"):
 
 
 def new_run(scenario_id="P01_intro", cid="alice", **kw):
+    kw.setdefault("planner", "greedy-edf")  # fast rule for API tests; the optimizer has its own tests
     r = client.post("/api/runs", json={"scenario_id": scenario_id, **kw}, headers=h(cid))
     assert r.status_code == 200, r.text
     return r.json()["run_id"]

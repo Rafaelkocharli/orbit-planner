@@ -78,7 +78,8 @@ def test_compare_branches_from_same_state():
 def test_strategies_in_background():
     rid = new_run("P02_shift")
     post(f"/api/runs/{rid}/advance", {"until_step": 100})
-    r = post(f"/api/runs/{rid}/strategies", {"background": True})
+    r = post(f"/api/runs/{rid}/strategies", {"background": True, "candidates": [
+        {"planner": "greedy-edf", "goal": "priority"}, {"planner": "greedy-edf", "goal": "revenue"}]})
     assert r.status_code == 202
     t = wait_task(r.json()["id"])
     assert t["status"] == "done", t
@@ -117,3 +118,11 @@ def test_busy_run_rejects_mutations():
     t = wait_task(r.json()["id"])
     assert t["status"] == "done" and t["result"]["finished"]
     assert blocked.status_code in (200, 409)  # 409 if the task was still running
+
+
+def test_planner_report():
+    rid = new_run("P01_intro", planner="cpsat-mpc", params={"horizon": 24, "replan_every": 8, "time_limit": 0.5})
+    post(f"/api/runs/{rid}/advance")
+    rep = get(f"/api/runs/{rid}/planner").json()
+    assert rep["planner"] == "cpsat-mpc" and rep["report"]["replans"] >= 1
+    assert get(f"/api/runs/{new_run()}/planner").json()["report"] is None
