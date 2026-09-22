@@ -4,13 +4,15 @@ from .optimizer import OptimizerPlanner
 from .reservation import ReservationPlanner
 
 # Register new planners here; the API and UI read this registry.
-# The first entry is the default; greedy-edf stays as the simple rule to compare against.
+# The first entry is the default: reserve runs a shift in seconds even on one CPU; cpsat-mpc is
+# the maximum-result option (minutes on the server for P03); greedy-edf is the simple rule to
+# compare against.
 PLANNERS = {
-    OptimizerPlanner.name: OptimizerPlanner,
     ReservationPlanner.name: ReservationPlanner,
+    OptimizerPlanner.name: OptimizerPlanner,
     GreedyPlanner.name: GreedyPlanner,
 }
-DEFAULT_PLANNER = OptimizerPlanner.name
+DEFAULT_PLANNER = ReservationPlanner.name
 
 
 def make_planner(name: str, params: dict | None = None) -> Planner:
