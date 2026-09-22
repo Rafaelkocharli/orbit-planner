@@ -27,6 +27,17 @@ export default function RunControl({ run, onRun, act, busy, onClose }: Props) {
 
   const otherGoal: Goal = run.goal === "priority" ? "revenue" : "priority";
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (busy || run.finished) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (e.key === "1") { e.preventDefault(); advance({ steps: 1 }); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, run.finished, run.run_id]);
+
   return (
     <section className="runbar">
       <div className="runbar-head">
@@ -38,6 +49,14 @@ export default function RunControl({ run, onRun, act, busy, onClose }: Props) {
           </div>
         </div>
         <button className="link" onClick={onClose}>← К списку</button>
+      </div>
+
+      <div className="shift-track" role="progressbar" aria-valuenow={run.step} aria-valuemin={0} aria-valuemax={run.steps}>
+        <i style={{ width: `${run.steps ? (100 * run.step) / run.steps : 0}%` }} />
+      </div>
+      <div className="shift-meta">
+        <span>шаг {run.step} · {fmt.time(run.step, run.step_s)}</span>
+        <span>{run.finished ? "смена закрыта" : `осталось ${run.steps - run.step} шаг. · ${fmt.time(run.steps - run.step, run.step_s)}`}</span>
       </div>
 
       <div className="stats">
@@ -55,28 +74,33 @@ export default function RunControl({ run, onRun, act, busy, onClose }: Props) {
       </div>
 
       <div className="row controls">
-        <button disabled={busy || run.finished} onClick={() => advance({ steps: 1 })}>+1 шаг</button>
-        <button disabled={busy || run.finished} onClick={() => advance({ steps: 12 })}>+1 час</button>
-        <span className="row">
+        <div className="control-group">
+          <span className="hint">Расчёт</span>
+          <button disabled={busy || run.finished} onClick={() => advance({ steps: 1 })}>+1 шаг <span className="kbd">1</span></button>
+          <button disabled={busy || run.finished} onClick={() => advance({ steps: 12 })}>+1 час</button>
           <input type="number" min={run.step} max={run.steps} value={until}
             onChange={(e) => setUntil(Number(e.target.value))} aria-label="Остановиться перед шагом" />
           <button disabled={busy || run.finished || until <= run.step} onClick={() => advance({ until_step: until })}>
             До шага {until} ({fmt.time(until, run.step_s)})
           </button>
-        </span>
-        <button className="primary" disabled={busy || run.finished} onClick={() => advance({})}>До конца смены</button>
-        <span className="sep" />
-        <button disabled={busy || run.finished} title="Изменение запишется в историю и повлияет на дальнейшие шаги"
-          onClick={() => act(async () => onRun(await api.goal(run.run_id, otherGoal)))}>
-          Сменить цель → {GOAL_TEXT[otherGoal]}
-        </button>
-        <button disabled={busy} title="Независимая копия текущего состояния"
-          onClick={() => act(async () => onRun(await api.fork(run.run_id, { label: `${run.label || run.scenario_id} · ветвь с шага ${run.step}` })))}>
-          Ветвь отсюда
-        </button>
-        <span className="sep" />
-        <button disabled={busy} onClick={() => act(() => api.downloadResult(run.run_id))}>Выгрузка JSON</button>
-        <button disabled={busy} onClick={() => act(() => api.openReport(run.run_id))}>Отчёт</button>
+          <button className="primary" disabled={busy || run.finished} onClick={() => advance({})}>До конца смены</button>
+        </div>
+        <div className="control-group">
+          <span className="hint">Стратегия</span>
+          <button disabled={busy || run.finished} title="Изменение запишется в историю и повлияет на дальнейшие шаги"
+            onClick={() => act(async () => onRun(await api.goal(run.run_id, otherGoal)))}>
+            Сменить цель → {GOAL_TEXT[otherGoal]}
+          </button>
+          <button disabled={busy} title="Независимая копия текущего состояния"
+            onClick={() => act(async () => onRun(await api.fork(run.run_id, { label: `${run.label || run.scenario_id} · ветвь с шага ${run.step}` })))}>
+            Ветвь отсюда
+          </button>
+        </div>
+        <div className="control-group">
+          <span className="hint">Результат</span>
+          <button disabled={busy} onClick={() => act(() => api.downloadResult(run.run_id))}>Выгрузка JSON</button>
+          <button disabled={busy} onClick={() => act(() => api.openReport(run.run_id))}>Отчёт</button>
+        </div>
       </div>
       {task && <Progress value={task.progress} text={`Расчёт: ${task.message || task.status}`} />}
       {run.finished && <p className="muted">Смена завершена. Можно сравнить варианты, разобрать потери или выгрузить результат.</p>}

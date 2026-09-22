@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import type { Brief } from "../api";
 
 export const GOAL_TEXT: Record<string, string> = {
@@ -81,6 +81,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: {
     <nav className="tabs" role="tablist">
       {tabs.map((t) => (
         <button key={t.id} role="tab" aria-selected={value === t.id} className={value === t.id ? "active" : ""}
+          tabIndex={value === t.id ? 0 : -1}
           onClick={() => onChange(t.id)}>
           {t.label}
         </button>
@@ -110,6 +111,43 @@ export function Card({ title, children, actions }: { title?: ReactNode; children
       )}
       {children}
     </section>
+  );
+}
+
+export function Modal({ title, onClose, children, actions }: {
+  title: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <Card title={title} actions={<>{actions}<button className="link" onClick={onClose}>закрыть</button></>}>
+          {children}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+export function Logo() {
+  return (
+    <svg className="logo" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="5.2" fill="var(--accent)" />
+      <ellipse cx="20" cy="20" rx="15" ry="6" fill="none" stroke="var(--accent-2)" strokeWidth="1.6" transform="rotate(-18 20 20)" />
+      <ellipse cx="20" cy="20" rx="15" ry="6" fill="none" stroke="color-mix(in srgb, var(--c3) 80%, transparent)" strokeWidth="1.2" transform="rotate(52 20 20)" />
+    </svg>
   );
 }
 

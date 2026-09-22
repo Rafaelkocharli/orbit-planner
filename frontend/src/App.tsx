@@ -9,10 +9,11 @@ import RunControl from "./components/RunControl";
 import Satellites from "./components/Satellites";
 import Schedule from "./components/Schedule";
 import Setup from "./components/Setup";
-import { Tabs } from "./components/ui";
+import { Logo, Tabs } from "./components/ui";
 import WhatIf from "./components/WhatIf";
 
 type Tab = "overview" | "events" | "schedule" | "satellites" | "jobs" | "analysis" | "compare" | "whatif";
+type Theme = "dark" | "light";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Обзор" },
@@ -25,17 +26,30 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "whatif", label: "Что если" },
 ];
 
+function readTheme(): Theme {
+  try {
+    const saved = localStorage.getItem("orbit-theme");
+    if (saved === "light" || saved === "dark") return saved;
+  } catch { /* private mode */ }
+  return "dark";
+}
+
 export default function App() {
   const [meta, setMeta] = useState<Meta>();
   const [run, setRun] = useState<RunState>();
   const [tab, setTab] = useState<Tab>("overview");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [theme, setTheme] = useState<Theme>(readTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem("orbit-theme", theme); } catch { /* ignore */ }
+  }, [theme]);
 
   const loadMeta = useCallback(() => api.meta().then(setMeta).catch((e) => setError(e.message)), []);
   useEffect(() => { loadMeta(); }, [loadMeta]);
 
-  // Every user action goes through here: one busy flag, one place for errors.
   const act = useCallback((fn: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -44,6 +58,7 @@ export default function App() {
 
   const open = (r: RunState) => {
     setRun(r);
+    setTab("overview");
     setError("");
     window.scrollTo({ top: 0 });
   };
@@ -51,9 +66,20 @@ export default function App() {
   return (
     <main>
       <header className="top">
-        <h1>Orbit Planner</h1>
-        <span className="muted">Автономное управление спутниковой группировкой</span>
-        {busy && <span className="spinner" aria-label="Выполняется" />}
+        <div className="brand">
+          <Logo />
+          <div className="brand-copy">
+            <h1>Orbit Planner</h1>
+            <span className="muted">Автономное управление спутниковой группировкой</span>
+          </div>
+        </div>
+        <div className="top-spacer" />
+        <div className="top-meta">
+          {busy && <span className="spinner" aria-label="Выполняется" />}
+          <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Переключить тему">
+            {theme === "dark" ? "Светлая" : "Тёмная"}
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -63,7 +89,12 @@ export default function App() {
         </div>
       )}
 
-      {!meta && !error && <p className="muted">Подключение к серверу…</p>}
+      {!meta && !error && (
+        <div className="boot">
+          <div className="rings" aria-hidden="true"><span /><span /><span /></div>
+          <p className="muted">Подключение к серверу планирования…</p>
+        </div>
+      )}
 
       {meta && !run && <Setup meta={meta} onMeta={loadMeta} onOpen={open} act={act} busy={busy} />}
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, Dict, Job, RunState } from "../api";
-import { CAUSE_TEXT, Card, fmt, Table } from "./ui";
+import { CAUSE_TEXT, Card, fmt, Modal, Table } from "./ui";
 
 const STATUS_TEXT: Record<string, string> = {
   completed: "выполнено", missed: "просрочено", open: "в работе", pending: "ожидает окна", infeasible: "невыполнимо",
@@ -74,7 +74,7 @@ export function WhyCard({ why, onClose }: { why: Dict; onClose: () => void }) {
   const cause = why.cause as { primary: string; text: string; breakdown: Record<string, number>; proof?: { statement: string }; competing_jobs?: { id: string; priority: number; value_usd: number; steps: number }[] } | undefined;
   const proof = (why.proof as { statement: string } | undefined) ?? cause?.proof;
   return (
-    <Card title={`Задание ${job.id}`} actions={<button className="link" onClick={onClose}>закрыть</button>}>
+    <Modal title={`Задание ${job.id}`} onClose={onClose}>
       <p>{job.kind}, приоритет {job.priority}, ${job.value_usd}, окно {job.release_step}–{job.deadline_step}, сделано {String(why.work_done)} из {job.work_steps}.</p>
       <p><strong>Статус:</strong> {STATUS_TEXT[String(why.status)] ?? String(why.status)}</p>
       {cause && <p><strong>Причина:</strong> {CAUSE_TEXT[cause.primary] ?? cause.primary} — {cause.text}</p>}
@@ -87,6 +87,6 @@ export function WhyCard({ why, onClose }: { why: Dict; onClose: () => void }) {
         <p className="muted">Конкуренты: {cause.competing_jobs.map((c) => `${c.id} (п${c.priority}, $${c.value_usd}, ${c.steps} шаг.)`).join(", ")}</p>
       )}
       {why.status === "open" && <p className="muted">Задание ещё можно выполнить: доступных шагов со связью — {String(why.usable_steps_left)}.</p>}
-    </Card>
+    </Modal>
   );
 }

@@ -18,7 +18,27 @@ export default function Overview({ run, act, busy }: { run: RunState; act: (fn: 
     setForecast(null);
   }, [run.run_id, run.step, run.events.length, run.goal]);
 
+  const sats = Object.entries(run.satellites).sort(([a], [b]) => a.localeCompare(b));
+  const reserve = 30;
+
   return (
+    <>
+    <Card title="Состояние группировки">
+      <div className="fleet-grid">
+        {sats.map(([id, s]) => (
+          <div key={id} className={`fleet-tile ${s.available ? "" : "off"}`}>
+            <div className="id">{id}</div>
+            <div className="soc-line"><i className={s.soc_pct < reserve ? "low" : ""} style={{ width: `${Math.min(100, s.soc_pct)}%` }} /></div>
+            <div className="tiny">
+              {fmt.n(s.soc_pct, 0)}% · {fmt.n(s.temp_c, 0)}°C
+              {!s.available && <span className="bad"> · нет</span>}
+              {s.calibration_left_steps === 0 && <span className="bad"> · калибр.</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="muted">Заряд и температура на текущем шаге. Подробные ряды — на вкладке «Аппараты».</p>
+    </Card>
     <div className="grid2">
       <Card title="Результат по приоритетам">
         {a && <Table
@@ -74,5 +94,6 @@ export default function Overview({ run, act, busy }: { run: RunState; act: (fn: 
         )}
       </Card>
     </div>
+    </>
   );
 }

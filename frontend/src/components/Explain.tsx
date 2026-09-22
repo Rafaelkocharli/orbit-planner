@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, Explain as ExplainData, RunState } from "../api";
-import { Card, fmt, REASON_TEXT, Table } from "./ui";
+import { Card, fmt, Modal, REASON_TEXT, Table } from "./ui";
 
 /** Why a satellite did what it did at a step: known info, state, options, consequences. */
 export default function Explain({ run, step, sid, onClose }: { run: RunState; step: number; sid: string; onClose?: () => void }) {
@@ -15,9 +15,9 @@ export default function Explain({ run, step, sid, onClose }: { run: RunState; st
 
   const st = data?.state_before as Record<string, number | boolean | string[]> | undefined;
   const req = data?.decision.requested as { action?: string; job_id?: string } | undefined;
-  return (
-    <Card title={`Решение: ${sid}, шаг ${step} (${fmt.time(step, run.step_s)})`}
-      actions={onClose && <button className="link" onClick={onClose}>закрыть</button>}>
+  const title = `Решение: ${sid}, шаг ${step} (${fmt.time(step, run.step_s)})`;
+  const body = (
+    <>
       {error && <p className="error">{error}</p>}
       {!data && !error && <p className="muted">Восстанавливаю состояние на шаге {step}…</p>}
       {data && st && (
@@ -50,6 +50,8 @@ export default function Explain({ run, step, sid, onClose }: { run: RunState; st
           <p className="muted">Недопустимость варианта объясняет только этот шаг и не доказывает, что задание нельзя было выполнить к сроку.</p>
         </>
       )}
-    </Card>
+    </>
   );
+  if (onClose) return <Modal title={title} onClose={onClose}>{body}</Modal>;
+  return <Card title={title}>{body}</Card>;
 }

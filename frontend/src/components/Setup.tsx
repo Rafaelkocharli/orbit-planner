@@ -70,23 +70,22 @@ export default function Setup({ meta, onMeta, onOpen, act, busy }: Props) {
   return (
     <div className="setup">
       <Card title="Новая смена">
+        <p className="muted">Выберите сценарий, цель и алгоритм — затем откройте смену оператора.</p>
+        <div className="scenario-grid">
+          {meta.scenarios.map((s) => (
+            <button key={s.id} type="button" className={`scenario-card ${s.id === scenarioId ? "selected" : ""}`}
+              onClick={() => setScenarioId(s.id)}>
+              <b>{s.title}</b>
+              <div className="meta">
+                <span>{s.satellites} КА</span>
+                <span>{s.steps} шаг. ({fmt.time(s.steps)})</span>
+                <span>{fmt.n(s.jobs)} заданий</span>
+                {s.source === "custom" && <span className="badge">свой</span>}
+              </div>
+            </button>
+          ))}
+        </div>
         <div className="form-grid">
-          <label>Сценарий
-            <select value={scenarioId} onChange={(e) => setScenarioId(e.target.value)}>
-              <optgroup label="Встроенные">
-                {meta.scenarios.filter((s) => s.source === "builtin").map((s) => (
-                  <option key={s.id} value={s.id}>{s.title}</option>
-                ))}
-              </optgroup>
-              {meta.scenarios.some((s) => s.source === "custom") && (
-                <optgroup label="Сохранённые">
-                  {meta.scenarios.filter((s) => s.source === "custom").map((s) => (
-                    <option key={s.id} value={s.id}>{s.title}</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </label>
           <label>Цель управления
             <select value={goal} onChange={(e) => setGoal(e.target.value as Goal)}>
               {meta.goals.map((g) => <option key={g} value={g}>{GOAL_TEXT[g]}</option>)}
