@@ -1,0 +1,20 @@
+# Production stack on the server (/opt/orbit-planner). nginx on the host proxies to 127.0.0.1:8000.
+services:
+  app:
+    image: orbit-planner:${ORBIT_TAG:?set ORBIT_TAG}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - orbit-storage:/app/storage
+    environment:
+      ORBIT_TASK_WORKERS: "1"
+    mem_limit: 700m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  orbit-storage:
