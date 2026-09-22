@@ -20,7 +20,41 @@ make test        # pytest
 ```
 
 Один процесс (UI собран и раздаётся FastAPI): `make serve` → http://localhost:8000.
-Docker: `docker build -t orbit-planner . && docker run -p 8000:8000 -v $PWD/storage:/app/storage orbit-planner`.
+Docker: `docker build -t orbit-planner . && docker run -p 8000:8000 -v orbit-storage:/app/storage orbit-planner`.
+
+## CI/CD и деплой
+
+Конвейер `.github/workflows/ci-cd.yml`:
+
+1. **CI** на каждый пуш и пул-реквест: тесты бэка на Python 3.10 и 3.12, воспроизведение
+   сохранённых расчётов утилитой организаторов, проверка типов и сборка фронта, сборка Docker-образа
+   и проверка запущенного контейнера.
+2. **CD** при пуше в `main`: образ `orbit-planner:<sha>` передаётся на сервер по SSH (`docker save` →
+   `docker load`, без реестра), `deploy/deploy.sh` переключает версию, ждёт `/api/health` и при сбое
+   возвращает предыдущую. Хранилище запусков — том `orbit-storage`, переживает обновления.
+3. **Откат вручную**: Actions → CI/CD → Run workflow → `rollback`.
+
+Сервер: nginx на порту 80 проксирует на `127.0.0.1:8000`; фаервол открыт только для SSH, HTTP, HTTPS;
+вход по SSH только по ключу. CI заходит пользователем `deploy`, ключ которого ограничен
+принудительной командой `orbit-ci-entry`: загрузить образ, обновить `compose.yml`/`deploy.sh`,
+выкатить или откатить — без shell.
+
+Первичная настройка (один раз):
+
+```bash
+ssh-keygen -t ed25519 -N "" -C orbit-planner-ci -f ~/.ssh/orbit_deploy
+ssh root@HOST "bash -s -- '$(cat ~/.ssh/orbit_deploy.pub)'" < deploy/server-setup.sh
+gh secret set DEPLOY_SSH_KEY < ~/.ssh/orbit_deploy
+gh variable set DEPLOY_HOST --body HOST
+gh variable set DEPLOY_KNOWN_HOSTS --body "$(ssh-keyscan -t ed25519 HOST)"
+```
+
+Логи и состояние на сервере:
+
+```bash
+ssh root@HOST 'cd /opt/orbit-planner && docker compose -p orbit logs --tail 100 app'
+ssh root@HOST 'cat /opt/orbit-planner/.current_tag /opt/orbit-planner/.previous_tag'
+```
 
 Переменные окружения: `ORBIT_STORAGE_DIR` (хранилище запусков, по умолчанию `storage/`),
 `ORBIT_MAX_RUNS` (запусков в памяти), `ORBIT_TASK_WORKERS` (потоков фоновых задач).
