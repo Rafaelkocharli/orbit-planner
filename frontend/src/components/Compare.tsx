@@ -18,8 +18,12 @@ export default function Compare({ run, meta, onOpen, act, busy }: Props) {
   const [cmp, setCmp] = useState<Comparison | null>(null);
   const [strat, setStrat] = useState<StrategyResult | null>(null);
   const [task, setTask] = useState<Task | null>(null);
-  const [cands, setCands] = useState<string[]>(() =>
-    Object.keys(meta.planners).flatMap((p) => meta.goals.map((g) => `${p}|${g}`)));
+  // Default: the main planner with both goals plus the simple rule as the baseline.
+  const [cands, setCands] = useState<string[]>(() => {
+    const main = Object.keys(meta.planners)[0];
+    const base = "greedy-edf" in meta.planners ? [`greedy-edf|${run.goal}`] : [];
+    return [...meta.goals.map((g) => `${main}|${g}`), ...base];
+  });
 
   const loadRuns = () => api.runs().then((rs) => {
     setRuns(rs);
